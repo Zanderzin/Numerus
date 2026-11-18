@@ -1,8 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { DADOS_EXEMPLO, type Dados } from "./data";
+import { carregarTransacoesManuais, mesclarManuais, salvarTransacoesManuais, type TransacaoManual } from "./manuais";
 import { carregarDadosPluggy, pluggyConfigurado, PERIODOS, type Periodo } from "./pluggy";
 
-const KEY_ITEM = "numerus.pluggy.itemId";
+const KEY_ITENS = "numerus.pluggy.itemIds";
+const KEY_ITEM_ANTIGO = "numerus.pluggy.itemId"; // single-connection key from before multi-item support
 const KEY_DIAS = "numerus.pluggy.dias";
 
 type Estado = "exemplo" | "carregando" | "conectado" | "erro";
@@ -12,21 +14,37 @@ type Financas = {
   estado: Estado;
   erro: string | null;
   configurado: boolean; // server has pluggy credentials
-  itemId: string | null;
+  itemIds: string[]; // every connected institution
   dias: Periodo;
   setDias: (d: Periodo) => void;
-  conectar: (itemId: string) => void;
-  desconectar: () => void;
+  conectar: (itemId: string) => void; // adds (or refreshes) a connection
+  desconectar: (itemId?: string) => void; // removes one, or all when omitted
   atualizar: () => void;
+  versao: number; // bumps on every refresh, so other loaders (investments) can follow
+  manuais: TransacaoManual[]; // every manual transaction, inside the window or not
+  setManuais: (f: (l: TransacaoManual[]) => TransacaoManual[]) => void;
 };
 
 const Ctx = createContext<Financas | null>(null);
 
-function lerItem(): string | null {
+function lerItens(): string[] {
   try {
-    return localStorage.getItem(KEY_ITEM);
+    const raw = localStorage.getItem(KEY_ITENS);
+    if (raw) return (JSON.parse(raw) as unknown[]).filter((x): x is string => typeof x === "string");
+    // migrate the old single connection
+    const antigo = localStorage.getItem(KEY_ITEM_ANTIGO);
+    return antigo ? [antigo] : [];
   } catch {
-    return null;
+    return [];
+  }
+}
+
+function gravarItens(ids: string[]) {
+  try {
+    localStorage.setItem(KEY_ITENS, JSON.stringify(ids));
+    localStorage.removeItem(KEY_ITEM_ANTIGO);
+  } catch {
+    // storage unavailable — connections just won't survive a reload
   }
 }
 
@@ -39,19 +57,11 @@ function lerDias(): Periodo {
   }
 }
 
-function gravarItem(id: string | null) {
-  try {
-    if (id) localStorage.setItem(KEY_ITEM, id);
-    else localStorage.removeItem(KEY_ITEM);
-  } catch {
-    // storage unavailable — connection just won't survive a reload
-  }
-}
-
 export function FinancasProvider({ children }: { children: ReactNode }) {
-  const [itemId, setItemId] = useState<string | null>(lerItem);
-  const [dados, setDados] = useState<Dados>(DADOS_EXEMPLO);
-  const [estado, setEstado] = useState<Estado>(itemId ? "carregando" : "exemplo");
+  const [itemIds, setItemIds] = useState<string[]>(lerItens);
+  const [base, setDados] = useState<Dados>(DADOS_EXEMPLO); // api or sample data, before manual entries
+  const [manuais, setManuaisState] = useState<TransacaoManual[]>(carregarTransacoesManuais);
+  const [estado, setEstado] = useState<Estado>(itemIds.length ? "carregando" : "exemplo");
   const [erro, setErro] = useState<string | null>(null);
   const [configurado, setConfigurado] = useState(false);
   const [versao, setVersao] = useState(0);
@@ -70,20 +80,27 @@ export function FinancasProvider({ children }: { children: ReactNode }) {
     pluggyConfigurado().then(setConfigurado);
   }, []);
 
+  // a stable key so a new array with the same ids doesn't refetch
+  const chaveItens = itemIds.join(",");
+
   useEffect(() => {
-    if (!itemId) {
+    const ids = chaveItens ? chaveItens.split(",") : [];
+    if (ids.length === 0) {
       setDados(DADOS_EXEMPLO);
       setEstado("exemplo");
+      setErro(null);
       return;
     }
     let ativo = true;
     setEstado("carregando");
     setErro(null);
-    carregarDadosPluggy(itemId, dias)
-      .then((d) => {
+    carregarDadosPluggy(ids, dias)
+      .then(({ dados: d, erros }) => {
         if (!ativo) return;
         setDados(d);
         setEstado("conectado");
+        // partial failure: show the data we have and say what failed
+        setErro(erros.length ? `${erros.length} conexão(ões) falharam: ${erros.join(" · ")}` : null);
       })
       .catch((e: Error) => {
         if (!ativo) return;
@@ -94,23 +111,44 @@ export function FinancasProvider({ children }: { children: ReactNode }) {
     return () => {
       ativo = false;
     };
-  }, [itemId, dias, versao]);
+  }, [chaveItens, dias, versao]);
 
   const conectar = useCallback((id: string) => {
-    gravarItem(id);
-    setItemId(id);
+    setItemIds((atual) => {
+      const novo = atual.includes(id) ? atual : [...atual, id];
+      gravarItens(novo);
+      return novo;
+    });
     setVersao((v) => v + 1);
   }, []);
 
-  const desconectar = useCallback(() => {
-    gravarItem(null);
-    setItemId(null);
+  const desconectar = useCallback((id?: string) => {
+    setItemIds((atual) => {
+      const novo = id ? atual.filter((x) => x !== id) : [];
+      gravarItens(novo);
+      return novo;
+    });
     setErro(null);
   }, []);
 
   const atualizar = useCallback(() => setVersao((v) => v + 1), []);
 
-  return <Ctx.Provider value={{ dados, estado, erro, configurado, itemId, dias, setDias, conectar, desconectar, atualizar }}>{children}</Ctx.Provider>;
+  const setManuais = useCallback((f: (l: TransacaoManual[]) => TransacaoManual[]) => {
+    setManuaisState((atual) => {
+      const novo = f(atual);
+      salvarTransacoesManuais(novo);
+      return novo;
+    });
+  }, []);
+
+  // every page reads this merged view, so manual entries flow into all screens and analyses
+  const dados = useMemo(() => mesclarManuais(base, manuais, dias), [base, manuais, dias]);
+
+  return (
+    <Ctx.Provider value={{ dados, estado, erro, configurado, itemIds, dias, setDias, conectar, desconectar, atualizar, versao, manuais, setManuais }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useFinancas(): Financas {

@@ -110,7 +110,8 @@ As credenciais ficam só no servidor do Vite (`server/pluggy.ts`, rotas `/api/pl
 | :-- | :-- | :-- |
 | `--nm-black` | `#0A0A0A` | texto, bordas, sidebar, barras |
 | `--nm-off-white` | `#F2F0E9` | fundo |
-| `--nm-green` | `#149E48` | **só preenchimento**: CTA, item ativo, destaque |
+| `--nm-green` | `#149E48` | **só preenchimento**: CTA, item ativo, destaque · `--color-positive` |
+| `--nm-red` | `#C63A2B` | alerta: valor negativo, meta atrasada, acima do teto · `--color-negative` (texto off-white) |
 | `--nm-font` | JetBrains Mono 400 / 700 / 800 | tudo |
 | `--nm-u` | `8px` | grade base |
 

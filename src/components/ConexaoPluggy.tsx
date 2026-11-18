@@ -6,20 +6,22 @@ import SeletorPeriodo from "./SeletorPeriodo";
 import { Badge, Button, Card } from "./ui";
 import { formatBRL } from "../lib/currency";
 
-// connect / refresh / disconnect a bank through the pluggy connect widget (sandbox)
+// connect several institutions through the pluggy connect widget (sandbox),
+// then refresh / reconnect / remove each one
 export default function ConexaoPluggy() {
-  const { estado, erro, configurado, itemId, dados, dias, conectar, desconectar, atualizar } = useFinancas();
+  const { estado, erro, configurado, itemIds, dados, dias, conectar, desconectar, atualizar } = useFinancas();
   const [token, setToken] = useState<string | null>(null);
-  const [modoUpdate, setModoUpdate] = useState(false);
+  const [itemUpdate, setItemUpdate] = useState<string | null>(null);
   const [abrindo, setAbrindo] = useState(false);
   const [erroWidget, setErroWidget] = useState<string | null>(null);
 
-  async function abrir(update: boolean) {
+  // `update` = item id to reconnect; omitted opens a brand-new connection
+  async function abrir(update?: string) {
     setAbrindo(true);
     setErroWidget(null);
     try {
-      setToken(await criarConnectToken(update && itemId ? itemId : undefined));
-      setModoUpdate(update);
+      setToken(await criarConnectToken(update));
+      setItemUpdate(update ?? null);
     } catch (e) {
       setErroWidget(e instanceof Error ? e.message : String(e));
     } finally {
@@ -28,13 +30,14 @@ export default function ConexaoPluggy() {
   }
 
   const conectado = estado === "conectado";
+  const nomes = new Map((dados.conexoes ?? []).map((c) => [c.id, c.instituicao]));
 
   return (
-    <Card title="CONEXÃO BANCÁRIA" meta="PLUGGY · SANDBOX">
+    <Card title="CONEXÕES BANCÁRIAS" meta={`PLUGGY · SANDBOX · ${itemIds.length}`}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <Badge dark={conectado}>
-            {estado === "carregando" ? "CARREGANDO…" : conectado ? "CONECTADO" : estado === "erro" ? "ERRO" : "DADOS DE EXEMPLO"}
+          <Badge dark={conectado} tom={estado === "erro" ? "negativo" : undefined}>
+            {estado === "carregando" ? "CARREGANDO…" : conectado ? "CONECTADO" : estado === "erro" ? "▼ ERRO" : "DADOS DE EXEMPLO"}
           </Badge>
           {conectado && <span style={{ fontWeight: 700 }}>{dados.transacoes.length} gastos · últimos {rotuloPeriodo(dias).toLowerCase()}</span>}
           <span style={{ marginLeft: "auto" }}><SeletorPeriodo /></span>
@@ -46,39 +49,50 @@ export default function ConexaoPluggy() {
           </p>
         )}
 
-        {configurado && !itemId && (
-          <p style={{ margin: 0 }}>
-            No widget, escolha o conector <strong>Pluggy Bank</strong> (sandbox) e entre com usuário <code>user-ok</code> e senha <code>password-ok</code>. Se pedir código, use <code>123456</code>.
+        {configurado && (
+          <p style={{ margin: 0, fontSize: 13 }}>
+            Sandbox: usuário <code>user-ok</code>, senha <code>password-ok</code> (código <code>123456</code> se pedir). Dá para conectar vários conectores — ex.:{" "}
+            <strong>Pluggy Bank</strong>, <strong>Pluggy Bank Investment</strong> (carteira de investimentos) e <strong>Pluggy Bank Business</strong>.
           </p>
         )}
 
-        {conectado && dados.contas.length > 0 && (
+        {itemIds.length > 0 && (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, border: "var(--nm-border-row)" }}>
-            {dados.contas.map((c) => (
-              <li key={c.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 12px", borderBottom: "1px solid var(--nm-grid)" }}>
-                <span style={{ fontWeight: 700 }}>
-                  {c.nome} <span style={{ fontWeight: 500 }}>· {c.tipo === "CREDIT" ? "CARTÃO" : "CONTA"}</span>
-                </span>
-                <span style={{ fontWeight: 800 }}>{formatBRL(c.saldo)}</span>
-              </li>
-            ))}
+            {itemIds.map((id) => {
+              const contas = dados.contas.filter((c) => c.itemId === id);
+              return (
+                <li key={id} style={{ padding: "10px 12px", borderBottom: "1px solid var(--nm-grid)", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <strong>{(nomes.get(id) ?? (estado === "carregando" ? "CARREGANDO…" : "CONEXÃO SEM RESPOSTA")).toUpperCase()}</strong>
+                    <span style={{ display: "flex", gap: 6 }}>
+                      <button className="nm-icon-btn" onClick={() => abrir(id)} disabled={!configurado || abrindo}>RECONECTAR</button>
+                      <button className="nm-icon-btn" onClick={() => desconectar(id)} aria-label={`Remover conexão ${nomes.get(id) ?? id}`}>REMOVER</button>
+                    </span>
+                  </div>
+                  {contas.map((c) => (
+                    <div key={c.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13 }}>
+                      <span>{c.nome} · {c.tipo === "CREDIT" ? "CARTÃO" : "CONTA"}</span>
+                      <span style={{ fontWeight: 800 }}>{formatBRL(c.saldo)}</span>
+                    </div>
+                  ))}
+                </li>
+              );
+            })}
           </ul>
         )}
 
         {(erro || erroWidget) && (
-          <p style={{ margin: 0, fontWeight: 700 }}>Erro: {erroWidget ?? erro}</p>
+          <p style={{ margin: 0 }}><Badge tom="negativo">▼ ERRO</Badge> {erroWidget ?? erro}</p>
         )}
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {!itemId ? (
-            <Button onClick={() => abrir(false)} disabled={!configurado || abrindo}>
-              {abrindo ? "ABRINDO…" : "CONECTAR BANCO"}
-            </Button>
-          ) : (
+          <Button onClick={() => abrir()} disabled={!configurado || abrindo}>
+            {abrindo ? "ABRINDO…" : itemIds.length ? "+ CONECTAR OUTRA INSTITUIÇÃO" : "CONECTAR BANCO"}
+          </Button>
+          {itemIds.length > 0 && (
             <>
-              <Button onClick={atualizar} disabled={estado === "carregando"}>ATUALIZAR DADOS</Button>
-              <Button variant="secondary" onClick={() => abrir(true)} disabled={!configurado || abrindo}>RECONECTAR</Button>
-              <Button variant="secondary" onClick={desconectar}>DESCONECTAR</Button>
+              <Button variant="secondary" onClick={atualizar} disabled={estado === "carregando"}>ATUALIZAR DADOS</Button>
+              <Button variant="secondary" onClick={() => desconectar()}>DESCONECTAR TODAS</Button>
             </>
           )}
         </div>
@@ -89,7 +103,7 @@ export default function ConexaoPluggy() {
           connectToken={token}
           includeSandbox
           language="pt"
-          updateItem={modoUpdate && itemId ? itemId : undefined}
+          updateItem={itemUpdate ?? undefined}
           onSuccess={({ item }) => {
             setToken(null);
             conectar(item.id);

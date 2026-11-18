@@ -1,12 +1,12 @@
 import SeletorPeriodo from "../components/SeletorPeriodo";
 import { Badge, Card, KpiTile, PageHeader } from "../components/ui";
-import { formatBRL } from "../lib/currency";
+import { formatBRL, formatBRLSinal } from "../lib/currency";
 import { gastoPorMes, resumoPorCategoria, totalGasto, totalPeriodo, totalTeto, type ResumoCategoria } from "../lib/data";
 import { useFinancas } from "../lib/financas";
 
 const fmtData = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
 
-// horizontal bars: spend per category (black, green when over cap) + cap tick
+// horizontal bars: spend per category (black, red when over cap) + cap tick
 function GraficoCategorias({ dados, total }: { dados: ResumoCategoria[]; total: number }) {
   const W = 820;
   const LABEL_W = 150;
@@ -35,14 +35,14 @@ function GraficoCategorias({ dados, total }: { dados: ResumoCategoria[]; total: 
         const pct = total ? Math.round((d.spent / total) * 100) : 0;
         return (
           <g key={d.id}>
-            <title>{`${d.label}: ${formatBRL(d.spent)} de ${formatBRL(d.cap)} (${pct}% do total)`}</title>
+            <title>{`${d.label}: ${formatBRL(d.spent)} de ${formatBRL(d.cap)} (${pct}% do total)${over ? ` · acima do teto ${formatBRLSinal(d.spent - d.cap)}` : ""}`}</title>
             <text x={0} y={y + BAR / 2 + 5} fontSize={13} fontWeight={800} fill="var(--nm-black)">{d.label}</text>
             <rect x={LABEL_W} y={y} width={x(d.cap) - LABEL_W} height={BAR} fill="none" stroke="var(--nm-black)" strokeWidth={3} />
-            <rect x={LABEL_W} y={y} width={Math.max(0, x(d.spent) - LABEL_W)} height={BAR} fill={over ? "var(--nm-green)" : "var(--nm-black)"} stroke="var(--nm-black)" strokeWidth={3} />
+            <rect x={LABEL_W} y={y} width={Math.max(0, x(d.spent) - LABEL_W)} height={BAR} fill={over ? "var(--color-negative)" : "var(--nm-black)"} stroke="var(--nm-black)" strokeWidth={3} />
             {/* cap tick */}
             <rect x={x(d.cap) - 3} y={y - 8} width={6} height={BAR + 16} fill="var(--nm-black)" />
             <text x={W - VALUE_W + 14} y={y + BAR / 2 + 5} fontSize={13} fontWeight={700} fill="var(--nm-black)">
-              {formatBRL(d.spent)} · {pct}%
+              {over ? "▲ " : ""}{formatBRL(d.spent)} · {pct}%
             </text>
           </g>
         );
@@ -68,14 +68,14 @@ export default function Categorias() {
           <KpiTile label={media ? "TOTAL NO PERÍODO" : "TOTAL GASTO"} value={formatBRL(totalPeriodo(fonte))} variant="dark" />
           {media && <KpiTile label={`MÉDIA / MÊS (${String(fonte.meses).replace(".", ",")} MESES)`} value={formatBRL(total)} />}
           <KpiTile label="MAIOR CATEGORIA" value={maior ? maior.label : "—"} />
-          <KpiTile label="ACIMA DO TETO" value={String(acima.length)} variant={acima.length ? "accent" : "light"} />
+          <KpiTile label="ACIMA DO TETO" value={String(acima.length)} variant={acima.length ? "negative" : "light"} />
         </div>
 
         <Card title="GASTOS POR CATEGORIA" meta={media ? "MÉDIA/MÊS · % DO TOTAL" : "GASTO · % DO TOTAL"}>
           <GraficoCategorias dados={dados} total={total} />
           <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 14, fontSize: 12, fontWeight: 700 }}>
             <span><Swatch fill="var(--nm-black)" /> GASTO</span>
-            <span><Swatch fill="var(--nm-green)" /> ACIMA DO TETO</span>
+            <span><Swatch fill="var(--color-negative)" /> ▲ ACIMA DO TETO</span>
             <span><Swatch fill="none" /> TETO</span>
           </div>
         </Card>
@@ -83,6 +83,10 @@ export default function Categorias() {
         {porMes.length > 1 && (
           <Card title="GASTO POR MÊS" meta="TOTAL · TETO SOMADO">
             <GraficoMensal meses={porMes} teto={totalTeto(fonte)} />
+            <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 14, fontSize: 12, fontWeight: 700 }}>
+              <span><Swatch fill="var(--nm-black)" /> DENTRO DO TETO</span>
+              <span><Swatch fill="var(--color-negative)" /> ▲ ACIMA DO TETO</span>
+            </div>
           </Card>
         )}
 
@@ -93,7 +97,7 @@ export default function Categorias() {
                 <summary style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 12px", fontWeight: 800 }}>
                   <span>
                     ▸ {d.label} <span style={{ fontWeight: 500 }}>({d.transacoes.length})</span>{" "}
-                    {d.spent > d.cap && <Badge dark>ACIMA</Badge>}
+                    {d.spent > d.cap && <Badge tom="negativo">▲ ACIMA {formatBRLSinal(d.spent - d.cap)}/MÊS</Badge>}
                   </span>
                   <span>{formatBRL(d.total)}</span>
                 </summary>
@@ -139,9 +143,9 @@ function GraficoMensal({ meses, teto }: { meses: { mes: string; total: number }[
         const [ano, mm] = m.mes.split("-");
         return (
           <g key={m.mes}>
-            <title>{`${MESES[Number(mm) - 1]}/${ano}: ${formatBRL(m.total)}`}</title>
-            <rect x={cx - bar / 2} y={y(m.total)} width={bar} height={BASE - y(m.total)} fill={over ? "var(--nm-green)" : "var(--nm-black)"} stroke="var(--nm-black)" strokeWidth={3} />
-            <text x={cx} y={y(m.total) - 6} fontSize={11} fontWeight={700} textAnchor="middle" fill="var(--nm-black)">{Math.round(m.total)}</text>
+            <title>{`${MESES[Number(mm) - 1]}/${ano}: ${formatBRL(m.total)}${over ? ` · acima do teto ${formatBRLSinal(m.total - teto)}` : ""}`}</title>
+            <rect x={cx - bar / 2} y={y(m.total)} width={bar} height={BASE - y(m.total)} fill={over ? "var(--color-negative)" : "var(--nm-black)"} stroke="var(--nm-black)" strokeWidth={3} />
+            <text x={cx} y={y(m.total) - 6} fontSize={11} fontWeight={700} textAnchor="middle" fill="var(--nm-black)">{over ? "▲ " : ""}{Math.round(m.total)}</text>
             <text x={cx} y={H - 12} fontSize={12} fontWeight={800} textAnchor="middle" fill="var(--nm-black)">{MESES[Number(mm) - 1]}/{ano.slice(2)}</text>
           </g>
         );

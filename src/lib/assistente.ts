@@ -4,11 +4,77 @@ import { carregarMetas, planejar } from "./metas";
 
 export type Mensagem = { id: string; autor: "user" | "bot"; texto: string };
 
-// local stand-in for the AI backend: answers from the app's own data.
-// swap this function for a call to a real model api — the chat ui only
-// depends on its signature.
-export async function responder(historico: Mensagem[], d: Dados): Promise<string> {
-  await new Promise((r) => setTimeout(r, 600 + Math.random() * 600));
+export type Resposta = { texto: string; origem: "ia" | "local" };
+
+// stable id per browser, used by the api to rate-limit messages
+function usuarioId(): string {
+  try {
+    let id = localStorage.getItem("numerus.usuario");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("numerus.usuario", id);
+    }
+    return id;
+  } catch {
+    return "anonimo";
+  }
+}
+
+// compact snapshot of the user's finances sent as context to the model
+export function contextoFinanceiro(d: Dados) {
+  const cats = resumoPorCategoria(d);
+  let comprometido = 0;
+  const metas = carregarMetas().map((m) => {
+    const p = planejar(m, comprometido, d);
+    comprometido += p.reservado;
+    return {
+      nome: m.nome,
+      alvo: m.alvo,
+      guardado: m.guardado,
+      prazo: m.prazo,
+      guardar_por_mes: Math.round(p.mensal),
+      aporte_planejado: p.aportePlanejado,
+      atraso_previsto: p.atrasoPrevisto,
+      viavel: p.viavel,
+    };
+  });
+  return {
+    periodo: d.periodo,
+    origem_dados: d.origem,
+    renda_mensal: d.renda,
+    gasto_mensal: Math.round(totalGasto(d)),
+    teto_total: Math.round(totalTeto(d)),
+    categorias: cats.map((c) => ({ nome: c.label, gasto: Math.round(c.spent), teto: c.cap, fixa: c.fixa })),
+    contas: d.contas.map((c) => ({ nome: c.nome, tipo: c.tipo, saldo: c.saldo })),
+    metas,
+  };
+}
+
+// asks gpt-4o-mini through the python api; falls back to the local rules
+// when the api is offline so the chat keeps working in demos
+export async function responder(historico: Mensagem[], d: Dados): Promise<Resposta> {
+  const pergunta = historico[historico.length - 1]?.texto ?? "";
+  const anteriores = historico
+    .slice(0, -1)
+    .filter((m) => m.id !== "inicio")
+    .map((m) => ({ role: m.autor === "user" ? "user" : "assistant", content: m.texto }));
+  try {
+    const res = await fetch("/py/assistente/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mensagem: pergunta, historico: anteriores, contexto: contextoFinanceiro(d), usuario_id: usuarioId() }),
+    });
+    if (!res.ok) throw new Error(`Erro ${res.status}`);
+    const body = (await res.json()) as { resposta: string };
+    return { texto: body.resposta, origem: "ia" };
+  } catch {
+    return { texto: await responderLocal(historico, d), origem: "local" };
+  }
+}
+
+// local rule-based answers from the app's own data (offline fallback)
+export async function responderLocal(historico: Mensagem[], d: Dados): Promise<string> {
+  await new Promise((r) => setTimeout(r, 400));
   const pergunta = historico[historico.length - 1]?.texto ?? "";
   const q = pergunta
     .toLowerCase()

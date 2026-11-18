@@ -6,6 +6,7 @@ import Transacoes from "./pages/Transacoes";
 import Categorias from "./pages/Categorias";
 import Metas from "./pages/Metas";
 import Assistente from "./pages/Assistente";
+import Investimentos from "./pages/Investimentos";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="transacoes" element={<Transacoes />} />
         <Route path="categorias" element={<Categorias />} />
         <Route path="metas" element={<Metas />} />
+        <Route path="investimentos" element={<Investimentos />} />
         <Route path="assistente" element={<Assistente />} />
       </Route>
     </Routes>

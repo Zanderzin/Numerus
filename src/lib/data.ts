@@ -14,6 +14,8 @@ export type Transacao = {
   descricao: string;
   categoria: string; // Categoria.id
   valor: number; // always positive (it's a spend)
+  source: "api" | "manual";
+  conta?: string; // Conta.id or a free-text account name for manual entries
 };
 
 export type Conta = {
@@ -21,16 +23,21 @@ export type Conta = {
   nome: string;
   tipo: "BANK" | "CREDIT";
   saldo: number;
+  instituicao?: string;
+  itemId?: string; // pluggy item the account came from
 };
 
+export type Conexao = { id: string; instituicao: string };
+
 export type Dados = {
-  origem: "exemplo" | "pluggy";
+  origem: "exemplo" | "pluggy" | "manual"; // manual = only manual entries, no bank connected
   periodo: string; // label shown in page headers
   meses: number; // months covered; spend and income below are compared as monthly averages
   renda: number; // média mensal
   categorias: Categoria[];
   transacoes: Transacao[];
   contas: Conta[];
+  conexoes?: Conexao[]; // pluggy items behind this data
 };
 
 export const CATEGORIAS: Categoria[] = [
@@ -41,6 +48,9 @@ export const CATEGORIAS: Categoria[] = [
   { id: "saude", label: "SAÚDE", cap: 300, fixa: false },
 ];
 
+// catch-all for spends no rule recognizes
+export const OUTROS: Categoria = { id: "outros", label: "OUTROS", cap: 500, fixa: false };
+
 export const DADOS_EXEMPLO: Dados = {
   origem: "exemplo",
   periodo: "NOVEMBRO",
@@ -49,20 +59,20 @@ export const DADOS_EXEMPLO: Dados = {
   categorias: CATEGORIAS,
   contas: [],
   transacoes: [
-    { id: "t1", data: "2026-11-01", descricao: "ALUGUEL", categoria: "moradia", valor: 1200 },
-    { id: "t2", data: "2026-11-01", descricao: "CONDOMÍNIO", categoria: "moradia", valor: 250 },
-    { id: "t3", data: "2026-11-02", descricao: "SUPERMERCADO", categoria: "mercado", valor: 412.3 },
-    { id: "t4", data: "2026-11-03", descricao: "UBER", categoria: "transporte", valor: 38.9 },
-    { id: "t5", data: "2026-11-03", descricao: "CINEMA", categoria: "lazer", valor: 64 },
-    { id: "t6", data: "2026-11-04", descricao: "FARMÁCIA", categoria: "saude", valor: 87.5 },
-    { id: "t7", data: "2026-11-05", descricao: "COMBUSTÍVEL", categoria: "transporte", valor: 221.1 },
-    { id: "t8", data: "2026-11-06", descricao: "FEIRA", categoria: "mercado", valor: 96.4 },
-    { id: "t9", data: "2026-11-07", descricao: "RESTAURANTE", categoria: "lazer", valor: 182 },
-    { id: "t10", data: "2026-11-07", descricao: "PADARIA", categoria: "mercado", valor: 41.3 },
-    { id: "t11", data: "2026-11-08", descricao: "SHOW", categoria: "lazer", valor: 139 },
-    { id: "t12", data: "2026-11-08", descricao: "CONSULTA", categoria: "saude", valor: 62.5 },
-    { id: "t13", data: "2026-11-09", descricao: "ESTACIONAMENTO", categoria: "transporte", valor: 50 },
-    { id: "t14", data: "2026-11-09", descricao: "SUPERMERCADO", categoria: "mercado", valor: 270 },
+    { id: "t1", data: "2026-11-01", descricao: "ALUGUEL", categoria: "moradia", valor: 1200, source: "api" },
+    { id: "t2", data: "2026-11-01", descricao: "CONDOMÍNIO", categoria: "moradia", valor: 250, source: "api" },
+    { id: "t3", data: "2026-11-02", descricao: "SUPERMERCADO", categoria: "mercado", valor: 412.3, source: "api" },
+    { id: "t4", data: "2026-11-03", descricao: "UBER", categoria: "transporte", valor: 38.9, source: "api" },
+    { id: "t5", data: "2026-11-03", descricao: "CINEMA", categoria: "lazer", valor: 64, source: "api" },
+    { id: "t6", data: "2026-11-04", descricao: "FARMÁCIA", categoria: "saude", valor: 87.5, source: "api" },
+    { id: "t7", data: "2026-11-05", descricao: "COMBUSTÍVEL", categoria: "transporte", valor: 221.1, source: "api" },
+    { id: "t8", data: "2026-11-06", descricao: "FEIRA", categoria: "mercado", valor: 96.4, source: "api" },
+    { id: "t9", data: "2026-11-07", descricao: "RESTAURANTE", categoria: "lazer", valor: 182, source: "api" },
+    { id: "t10", data: "2026-11-07", descricao: "PADARIA", categoria: "mercado", valor: 41.3, source: "api" },
+    { id: "t11", data: "2026-11-08", descricao: "SHOW", categoria: "lazer", valor: 139, source: "api" },
+    { id: "t12", data: "2026-11-08", descricao: "CONSULTA", categoria: "saude", valor: 62.5, source: "api" },
+    { id: "t13", data: "2026-11-09", descricao: "ESTACIONAMENTO", categoria: "transporte", valor: 50, source: "api" },
+    { id: "t14", data: "2026-11-09", descricao: "SUPERMERCADO", categoria: "mercado", valor: 270, source: "api" },
   ],
 };
 

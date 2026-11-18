@@ -253,3 +253,22 @@ textarea.nm-input {
   0%, 100% { opacity: 0.2; }
   50% { opacity: 1; }
 }
+
+/* destructive confirm: red fill, off-white text (contrast 4.6:1) */
+.nm-icon-btn-perigo {
+  background: var(--color-negative);
+  color: var(--color-on-negative);
+}
+.nm-icon-btn-perigo:hover {
+  background: var(--nm-black);
+}
+
+/* visually hidden, still read by screen readers */
+.nm-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

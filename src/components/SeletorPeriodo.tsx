@@ -1,10 +1,10 @@
 import { useFinancas } from "../lib/financas";
 import { PERIODOS, rotuloPeriodo } from "../lib/pluggy";
 
-// segmented control for the pluggy analysis window; hidden on sample data
+// segmented control for the analysis window; hidden on sample data
 export default function SeletorPeriodo() {
   const { dados, dias, setDias, estado } = useFinancas();
-  if (dados.origem !== "pluggy" && estado !== "carregando") return null;
+  if (dados.origem === "exemplo" && estado !== "carregando") return null;
 
   return (
     <div role="group" aria-label="Período da análise" style={{ display: "flex", border: "var(--nm-border-button)" }}>

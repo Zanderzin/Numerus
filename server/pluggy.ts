@@ -52,6 +52,26 @@ async function transacoes(cred: Credenciais, accountId: string, from: string, to
   return todas;
 }
 
+// GET /investments — page-number pagination (page / totalPages)
+async function investimentos(cred: Credenciais, itemId: string) {
+  const todos: unknown[] = [];
+  for (let page = 1, total = 1; page <= total && page <= 20; page++) {
+    const r: { results: unknown[]; totalPages?: number } = await pluggy(
+      cred,
+      `/investments?${new URLSearchParams({ itemId, pageSize: "500", page: String(page) })}`,
+    );
+    todos.push(...r.results);
+    total = r.totalPages ?? 1;
+  }
+  return todos;
+}
+
+// institution name comes from the item's connector (e.g. "XP", "Nubank")
+async function instituicao(cred: Credenciais, itemId: string): Promise<{ id: string; instituicao: string; imagem: string | null }> {
+  const item = await pluggy<{ id: string; connector?: { name?: string; imageUrl?: string } }>(cred, `/items/${encodeURIComponent(itemId)}`);
+  return { id: item.id, instituicao: item.connector?.name ?? "INSTITUIÇÃO", imagem: item.connector?.imageUrl ?? null };
+}
+
 function json(res: Parameters<Connect.NextHandleFunction>[1], status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
@@ -71,7 +91,8 @@ async function lerCorpo(req: Connect.IncomingMessage): Promise<Record<string, un
 // routes:
 //   GET  /api/pluggy/status              → { configurado }
 //   POST /api/pluggy/connect-token       → { accessToken }   body: { itemId? }
-//   GET  /api/pluggy/dados?itemId&from&to → { contas, transacoes }
+//   GET  /api/pluggy/dados?itemId&from&to → { item, contas, transacoes }
+//   GET  /api/pluggy/investimentos?itemId → { item, investimentos }
 function middleware(cred: Credenciais | null): Connect.NextHandleFunction {
   return async (req, res, next) => {
     const url = new URL(req.url ?? "", "http://localhost");
@@ -94,9 +115,19 @@ function middleware(cred: Credenciais | null): Connect.NextHandleFunction {
         const from = url.searchParams.get("from");
         const to = url.searchParams.get("to");
         if (!itemId || !from || !to) return json(res, 400, { erro: "itemId, from e to são obrigatórios" });
-        const contas = (await pluggy<Pagina<{ id: string }>>(cred, `/accounts?itemId=${encodeURIComponent(itemId)}`)).results;
+        const [item, contas] = await Promise.all([
+          instituicao(cred, itemId),
+          pluggy<Pagina<{ id: string }>>(cred, `/accounts?itemId=${encodeURIComponent(itemId)}`).then((r) => r.results),
+        ]);
         const porConta = await Promise.all(contas.map((c) => transacoes(cred, c.id, from, to)));
-        return json(res, 200, { contas, transacoes: porConta.flat() });
+        return json(res, 200, { item, contas, transacoes: porConta.flat() });
+      }
+
+      if (rota === "investimentos" && req.method === "GET") {
+        const itemId = url.searchParams.get("itemId");
+        if (!itemId) return json(res, 400, { erro: "itemId é obrigatório" });
+        const [item, lista] = await Promise.all([instituicao(cred, itemId), investimentos(cred, itemId)]);
+        return json(res, 200, { item, investimentos: lista });
       }
 
       return json(res, 404, { erro: "rota desconhecida" });

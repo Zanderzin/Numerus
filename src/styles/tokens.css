@@ -12,6 +12,13 @@
   --nm-grid: #DCD9CF;      /* background grid lines */
   --nm-muted: #CFCBBF;     /* future / inactive bars */
   --nm-hover: #333333;
+  --nm-red: #C63A2B;       /* alert red */
+
+  /* semantic: good vs bad. never rely on color alone — pair with ▲/▼ and +/− */
+  --color-positive: var(--nm-green);
+  --color-on-positive: var(--nm-black);     /* text on green fill is always black */
+  --color-negative: var(--nm-red);
+  --color-on-negative: var(--nm-off-white); /* black on red fails contrast (3.8:1); off-white is 4.6:1 */
 
   /* type */
   --nm-font: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

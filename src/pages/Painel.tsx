@@ -1,10 +1,14 @@
+import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import ConexaoPluggy from "../components/ConexaoPluggy";
 import { Badge, Card, KpiTile, PageHeader, ProgressBar } from "../components/ui";
-import { formatBRL } from "../lib/currency";
+import { formatBRL, formatBRLSinal } from "../lib/currency";
 import { resumoPorCategoria, totalGasto, totalTeto } from "../lib/data";
 import { useFinancas } from "../lib/financas";
-import { carregarMetas } from "../lib/metas";
+import { atrasada, carregarMetas } from "../lib/metas";
+
+// dev tools are code-split and the branch is dropped from production builds
+const PainelDev = import.meta.env.DEV ? lazy(() => import("../dev/PainelDev")) : null;
 
 // only the essentials: balance, spend vs cap, main goal and what needs attention
 export default function Painel() {
@@ -12,6 +16,7 @@ export default function Painel() {
   const gasto = totalGasto(dados);
   const media = dados.meses > 1;
   const teto = totalTeto(dados);
+  const saldo = dados.renda - gasto;
   const atencao = resumoPorCategoria(dados).filter((c) => c.spent >= c.cap * 0.9);
 
   const meta = carregarMetas()[0];
@@ -22,9 +27,13 @@ export default function Painel() {
       <PageHeader eyebrow={dados.periodo} title="PAINEL" />
       <div className="nm-content">
         <div className="nm-row">
-          <KpiTile label={dados.origem === "pluggy" ? (media ? "ENTRADAS − GASTOS / MÊS" : "ENTRADAS − GASTOS") : "SALDO DO MÊS"} value={formatBRL(dados.renda - gasto)} variant="dark" />
-          <KpiTile label={`${media ? "GASTO MÉDIO/MÊS" : "GASTO"} · TETO ${formatBRL(teto)}`} value={formatBRL(gasto)} />
-          <KpiTile label={meta ? `META: ${meta.nome.toUpperCase()}` : "META"} value={metaPct === null ? "—" : `${metaPct}%`} variant="accent" />
+          <KpiTile label={dados.origem !== "exemplo" ? (media ? "ENTRADAS − GASTOS / MÊS" : "ENTRADAS − GASTOS") : "SALDO DO MÊS"} value={`${saldo < 0 ? "▼" : "▲"} ${formatBRLSinal(saldo)}`} variant={saldo < 0 ? "negative" : "dark"} />
+          <KpiTile label={`${media ? "GASTO MÉDIO/MÊS" : "GASTO"} · TETO ${formatBRL(teto)}${gasto > teto ? " · ▲ ACIMA" : ""}`} value={formatBRL(gasto)} variant={gasto > teto ? "negative" : "light"} />
+          {meta && atrasada(meta) ? (
+            <KpiTile label={`▼ META ATRASADA: ${meta.nome.toUpperCase()}`} value={`${metaPct}%`} variant="negative" />
+          ) : (
+            <KpiTile label={meta ? `META: ${meta.nome.toUpperCase()}` : "META"} value={metaPct === null ? "—" : `${metaPct}%`} variant="accent" />
+          )}
         </div>
 
         <Card title="PRECISA DE ATENÇÃO" meta={`${atencao.length} CATEGORIA(S)${media ? " · MÉDIA/MÊS" : ""}`}>
@@ -44,6 +53,12 @@ export default function Painel() {
         </Card>
 
         <ConexaoPluggy />
+
+        {PainelDev && (
+          <Suspense fallback={null}>
+            <PainelDev />
+          </Suspense>
+        )}
 
         {dados.origem === "exemplo" && <div><Badge>DADOS DE EXEMPLO</Badge></div>}
       </div>

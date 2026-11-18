@@ -1,12 +1,13 @@
-import type { CSSProperties, ReactNode } from "react";
-import { formatBRL } from "../lib/currency";
+import { useState, type CSSProperties, type ReactNode } from "react";
+import { formatBRL, formatBRLSinal } from "../lib/currency";
 
-// kpi tile — variants follow the painel design
-type KpiVariant = "dark" | "light" | "accent";
+// kpi tile — variants follow the painel design; `negative` flags a bad number
+type KpiVariant = "dark" | "light" | "accent" | "negative";
 const kpiBg: Record<KpiVariant, CSSProperties> = {
   dark: { background: "var(--nm-black)", color: "var(--nm-off-white)" },
   light: { background: "var(--nm-off-white)", color: "var(--nm-black)" },
-  accent: { background: "var(--nm-green)", color: "var(--nm-black)" },
+  accent: { background: "var(--color-positive)", color: "var(--color-on-positive)" },
+  negative: { background: "var(--color-negative)", color: "var(--color-on-negative)" },
 };
 
 export function KpiTile({ label, value, variant = "light" }: { label: string; value: string; variant?: KpiVariant }) {
@@ -70,27 +71,36 @@ export function Button({
   );
 }
 
-// budget bar — green only when over the cap
+// budget bar — black fill, red when over the cap (with ▲ and the excess, never color alone)
 export function ProgressBar({ label, spent, cap }: { label: string; spent: number; cap: number }) {
   const over = spent > cap;
   const pct = Math.min(100, Math.round((spent / cap) * 100));
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
-        <span>
-          {label}{" "}
-          {over && <span style={{ background: "var(--nm-black)", color: "var(--nm-off-white)", padding: "2px 6px", fontSize: 11 }}>ACIMA</span>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {label}
+          {over && <Badge tom="negativo">▲ ACIMA {formatBRLSinal(spent - cap)}</Badge>}
         </span>
         <span>{formatBRL(spent)} / {formatBRL(cap)}</span>
       </div>
       <div style={{ height: 16, border: "var(--nm-border-row)" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: over ? "var(--nm-green)" : "var(--nm-black)" }} />
+        <div style={{ width: `${pct}%`, height: "100%", background: over ? "var(--color-negative)" : "var(--nm-black)" }} />
       </div>
     </div>
   );
 }
 
-export function Badge({ children, dark }: { children: ReactNode; dark?: boolean }) {
+type Tom = "neutro" | "escuro" | "positivo" | "negativo";
+const badgeCor: Record<Tom, CSSProperties> = {
+  neutro: { background: "transparent", color: "var(--nm-black)" },
+  escuro: { background: "var(--nm-black)", color: "var(--nm-off-white)" },
+  positivo: { background: "var(--color-positive)", color: "var(--color-on-positive)" },
+  negativo: { background: "var(--color-negative)", color: "var(--color-on-negative)" },
+};
+
+// `dark` kept as a shortcut for tom="escuro"
+export function Badge({ children, dark, tom }: { children: ReactNode; dark?: boolean; tom?: Tom }) {
   return (
     <span
       style={{
@@ -99,12 +109,39 @@ export function Badge({ children, dark }: { children: ReactNode; dark?: boolean 
         fontWeight: 800,
         letterSpacing: "0.1em",
         padding: "2px 6px",
-        background: dark ? "var(--nm-black)" : "transparent",
-        color: dark ? "var(--nm-off-white)" : "var(--nm-black)",
         whiteSpace: "nowrap",
+        ...badgeCor[tom ?? (dark ? "escuro" : "neutro")],
       }}
     >
       {children}
+    </span>
+  );
+}
+
+// signed change chip: arrow shows direction, color shows good/bad.
+// `inverter` when going up is bad (e.g. spend over budget).
+// the text always carries ▲/▼ and +/−, so it reads without color (colorblind-safe).
+export function Variacao({ valor, texto, inverter = false }: { valor: number; texto: string; inverter?: boolean }) {
+  const zero = valor === 0 || /^[^1-9]*$/.test(texto); // "0,0%" or "R$ 0,00" count as flat
+  const bom = zero ? null : inverter ? valor < 0 : valor > 0;
+  const seta = zero ? "■" : valor > 0 ? "▲" : "▼";
+  const leitura = zero ? "estável" : bom ? "positivo" : "negativo";
+  return (
+    <span
+      aria-label={`${leitura}: ${texto}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        border: "var(--nm-border-row)",
+        padding: "1px 6px",
+        fontWeight: 800,
+        whiteSpace: "nowrap",
+        ...badgeCor[bom === null ? "neutro" : bom ? "positivo" : "negativo"],
+      }}
+    >
+      <span aria-hidden>{seta}</span>
+      <span aria-hidden>{texto}</span>
     </span>
   );
 }
@@ -118,5 +155,19 @@ export function PageHeader({ eyebrow, title, action }: { eyebrow: string; title:
       </div>
       {action}
     </header>
+  );
+}
+
+// two-step delete: EXCLUIR → CONFIRMAR? / NÃO
+export function ConfirmarExclusao({ rotulo, onConfirmar }: { rotulo: string; onConfirmar: () => void }) {
+  const [perguntando, setPerguntando] = useState(false);
+  if (!perguntando) {
+    return <button className="nm-icon-btn" onClick={() => setPerguntando(true)} aria-label={`Excluir ${rotulo}`}>EXCLUIR</button>;
+  }
+  return (
+    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }} role="group" aria-label={`Confirmar exclusão de ${rotulo}`}>
+      <button className="nm-icon-btn nm-icon-btn-perigo" onClick={onConfirmar} autoFocus>CONFIRMAR</button>
+      <button className="nm-icon-btn" onClick={() => setPerguntando(false)}>NÃO</button>
+    </span>
   );
 }

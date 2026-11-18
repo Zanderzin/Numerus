@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Badge, Button, PageHeader } from "../components/ui";
-import { responder, type Mensagem } from "../lib/assistente";
+import { responder, type Mensagem, type Resposta } from "../lib/assistente";
 import { useFinancas } from "../lib/financas";
 
-const SUGESTOES = ["Quanto gastei?", "O que passou do teto?", "Onde posso cortar?", "Como estão minhas metas?", "Quais contas estão conectadas?"];
+const SUGESTOES = ["Quanto gastei?", "Onde posso cortar?", "Como estão minhas metas?", "CDB ou Tesouro Selic?", "Como montar uma reserva de emergência?"];
 
 const BOAS_VINDAS: Mensagem = {
   id: "inicio",
   autor: "bot",
-  texto: "Olá! Sou o assistente do NUMERUS. Posso analisar seus gastos, tetos e metas. Como posso ajudar?",
+  texto: "Olá! Sou o assistente financeiro do NUMERUS. Posso analisar seus gastos, tetos e metas, e tirar dúvidas sobre investimentos, dívidas e orçamento. Como posso ajudar?",
 };
 
 export default function Assistente() {
@@ -16,6 +16,7 @@ export default function Assistente() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([BOAS_VINDAS]);
   const [texto, setTexto] = useState("");
   const [pensando, setPensando] = useState(false);
+  const [origem, setOrigem] = useState<Resposta["origem"] | null>(null);
   const fimRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,7 +32,8 @@ export default function Assistente() {
     setPensando(true);
     try {
       const resposta = await responder(historico, dados);
-      setMensagens((m) => [...m, { id: crypto.randomUUID(), autor: "bot", texto: resposta }]);
+      setOrigem(resposta.origem);
+      setMensagens((m) => [...m, { id: crypto.randomUUID(), autor: "bot", texto: resposta.texto }]);
     } catch {
       setMensagens((m) => [...m, { id: crypto.randomUUID(), autor: "bot", texto: "Não consegui responder agora. Tente de novo." }]);
     } finally {
@@ -81,13 +83,19 @@ export default function Assistente() {
               className="nm-input"
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              placeholder="Pergunte sobre seus gastos, tetos ou metas…"
+              placeholder="Pergunte sobre seus gastos, metas, investimentos…"
               aria-label="Mensagem"
             />
             <Button type="submit" disabled={!texto.trim() || pensando}>ENVIAR</Button>
           </form>
         </div>
-        <div><Badge>RESPOSTAS LOCAIS · SEM IA CONECTADA</Badge></div>
+        <div>
+          {origem === "local" ? (
+            <Badge dark>API OFFLINE · RESPOSTAS LOCAIS</Badge>
+          ) : (
+            <Badge>GPT-4O MINI · SOMENTE FINANÇAS</Badge>
+          )}
+        </div>
       </div>
     </>
   );

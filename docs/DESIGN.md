@@ -34,8 +34,20 @@ Contorno da marca: `stroke-width` 4 no tamanho padrão, 5–6 em tamanhos pequen
 | GREEN DARK | `#0E7F39` | `--nm-green-dark` |
 | GRID | `#DCD9CF` | `--nm-grid` |
 | MUTED | `#CFCBBF` | `--nm-muted` (dias futuros, inativo) |
+| ALERT RED | `#C63A2B` | `--nm-red` |
 
 **Verde = só preenchimento.** Texto sobre verde é sempre preto.
+
+### Tokens semânticos
+
+| TOKEN | VALOR | USO |
+| :-- | :-- | :-- |
+| `--color-positive` | `--nm-green` | rentabilidade positiva, meta concluída, no ritmo |
+| `--color-on-positive` | `--nm-black` | texto sobre verde |
+| `--color-negative` | `--nm-red` | rentabilidade negativa, meta atrasada, gasto acima do teto, variação negativa |
+| `--color-on-negative` | `--nm-off-white` | texto sobre vermelho (preto sobre vermelho dá 3,8:1 e reprova; off-white dá 4,6:1) |
+
+**Nunca só a cor.** Todo valor bom/ruim leva seta e sinal: `▲ +12,3%`, `▼ −R$ 300,00`, `▲ ACIMA +R$ 80,00`. Use o componente `Variacao` (seta = direção, cor = bom/ruim; `inverter` quando subir é ruim) e `Badge tom="negativo"`.
 
 ## [03] TIPO
 
@@ -68,13 +80,13 @@ Grade de 8px (`1U`). Padding de card 18–20px, de página 28–32px, gaps de 20
 | COMPONENTE | ANATOMIA |
 | :-- | :-- |
 | `SectionHeader` | faixa com borda inferior 4px, título 13px/800 à esquerda, meta à direita |
-| `KpiTile` | card 6px, rótulo 12px + valor 34px; variantes `dark`, `light`, `accent` |
+| `KpiTile` | card 6px, rótulo 12px + valor 34px; variantes `dark`, `light`, `accent`, `negative` (vermelho) |
 | `Button` primário | fundo verde, borda 4px, texto 14px/800, sombra `5px 5px 0` |
 | `Button` secundário | fundo preto, texto off-white, sem sombra |
-| `ProgressBar` | trilho 16px com borda 3px; preenchimento preto, verde quando acima do teto |
+| `ProgressBar` | trilho 16px com borda 3px; preenchimento preto, vermelho + `▲ ACIMA +R$ x` quando acima do teto |
 | `DateChip` | fundo preto, texto off-white 800, padding 4×8 |
 | `NavItem` ativo | fundo verde, borda 4px preta, texto preto |
-| `Badge` | borda 3px, 11px/800, tracking 0.1em (ex.: `DADOS DE EXEMPLO`, `ACIMA`) |
+| `Badge` | borda 3px, 11px/800, tracking 0.1em (ex.: `DADOS DE EXEMPLO`); `tom`: neutro · escuro · positivo · negativo |
 
 ## [06] NÃO FAZER
 

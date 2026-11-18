@@ -1,13 +1,18 @@
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from twilio.request_validator import RequestValidator
 from twilio.twiml.messaging_response import MessagingResponse
 
-from . import assistente, config, montecarlo, previsao, whatsapp
+from . import assistente, config, montecarlo, pluggy, previsao, whatsapp
 
 app = FastAPI(title="NUMERUS API", version="1.0")
 app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGENS, allow_methods=["*"], allow_headers=["*"])
+
+# the front calls these routes as /py/*. on vercel the service receives the original
+# path (with /py), while the vite dev proxy strips it, so the router is mounted at both
+# "/" and "/py" (see the bottom of this file).
+router = APIRouter()
 
 
 # ---------- modelos de entrada ----------
@@ -77,7 +82,7 @@ class EntradaWhatsApp(BaseModel):
 
 
 # ---------- rotas ----------
-@app.get("/saude")
+@router.get("/saude")
 def saude():
     return {"ok": True, "openai": bool(config.OPENAI_API_KEY), "twilio": bool(config.TWILIO_ACCOUNT_SID)}
 
@@ -90,7 +95,7 @@ def _meses_de(meses, transacoes):
     raise HTTPException(422, "envie 'meses' ou 'transacoes'")
 
 
-@app.post("/investimentos/previsao-aporte")
+@router.post("/investimentos/previsao-aporte")
 def previsao_aporte(e: EntradaPrevisao):
     try:
         return previsao.prever_sobra(_meses_de(e.meses, e.transacoes), e.horizonte)
@@ -98,7 +103,7 @@ def previsao_aporte(e: EntradaPrevisao):
         raise HTTPException(422, str(err))
 
 
-@app.post("/investimentos/monte-carlo")
+@router.post("/investimentos/monte-carlo")
 def monte_carlo(e: EntradaSimulacao):
     try:
         return montecarlo.simular(montecarlo.ParametrosSimulacao(**e.model_dump(exclude_none=True)))
@@ -106,7 +111,7 @@ def monte_carlo(e: EntradaSimulacao):
         raise HTTPException(422, str(err))
 
 
-@app.post("/investimentos/aporte-para-meta")
+@router.post("/investimentos/aporte-para-meta")
 def aporte_para_meta(e: EntradaMeta):
     try:
         return montecarlo.aporte_para_meta(**e.model_dump())
@@ -114,7 +119,7 @@ def aporte_para_meta(e: EntradaMeta):
         raise HTTPException(422, str(err))
 
 
-@app.post("/investimentos/plano")
+@router.post("/investimentos/plano")
 def plano(e: EntradaPlano):
     """o ml estima quanto o usuário consegue aportar; o monte carlo projeta até onde isso chega."""
     try:
@@ -130,7 +135,7 @@ def plano(e: EntradaPlano):
         raise HTTPException(422, str(err))
 
 
-@app.post("/assistente/chat")
+@router.post("/assistente/chat")
 def chat(e: EntradaChat):
     try:
         return assistente.responder(e.mensagem, e.historico, e.contexto, e.usuario_id)
@@ -138,7 +143,7 @@ def chat(e: EntradaChat):
         raise HTTPException(503, str(err))
 
 
-@app.post("/notificacoes/whatsapp")
+@router.post("/notificacoes/whatsapp")
 def notificar(e: EntradaWhatsApp):
     d = e.dados or {}
     if e.tipo == "progresso_meta":
@@ -155,7 +160,7 @@ def notificar(e: EntradaWhatsApp):
         raise HTTPException(503, str(err))
 
 
-@app.post("/webhooks/twilio")
+@router.post("/webhooks/twilio")
 async def webhook_twilio(request: Request):
     """mensagens recebidas no whatsapp do sandbox são respondidas pelo assistente financeiro."""
     form = dict(await request.form())
@@ -171,3 +176,9 @@ async def webhook_twilio(request: Request):
     resp = MessagingResponse()
     resp.message(texto[:1500])
     return Response(content=str(resp), media_type="application/xml")
+
+
+app.include_router(router)
+app.include_router(router, prefix="/py", include_in_schema=False)  # same routes, so keep /docs clean
+# pluggy keeps the /api/pluggy paths the front already uses
+app.include_router(pluggy.router)

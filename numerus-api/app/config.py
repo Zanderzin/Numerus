@@ -1,7 +1,12 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
+# local: numerus-api/.env first, then the repo root .env (where the pluggy keys already live).
+# on vercel the project env vars are already in the environment and nothing is overridden.
 load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 # openai
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -22,3 +27,7 @@ MAX_HISTORICO = int(os.getenv("MAX_HISTORICO", "6"))
 
 # origens liberadas para o front (separadas por vírgula)
 CORS_ORIGENS = [o.strip() for o in os.getenv("CORS_ORIGENS", "*").split(",")]
+
+# pluggy (agregador bancário, sandbox)
+PLUGGY_CLIENT_ID = os.getenv("PLUGGY_CLIENT_ID", "")
+PLUGGY_CLIENT_SECRET = os.getenv("PLUGGY_CLIENT_SECRET", "")

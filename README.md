@@ -98,9 +98,13 @@ Sem configuração o app usa dados de exemplo. Para analisar movimentações ban
 
 1. Crie uma aplicação no [dashboard do Pluggy](https://dashboard.pluggy.ai) (aplicações novas já têm os conectores sandbox).
 2. Copie `.env.example` para `.env` e preencha `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET`.
-3. Rode `npm run dev`, vá ao **PAINEL → CONECTAR BANCO**, escolha **Pluggy Bank** e entre com `user-ok` / `password-ok` (MFA: `123456`).
+3. Suba a API Python (`numerus-api`, porta 8000) e rode `npm run dev`. Vá ao **PAINEL → CONECTAR BANCO**, escolha **Pluggy Bank** e entre com `user-ok` / `password-ok` (MFA: `123456`).
 
-As credenciais ficam só no servidor do Vite (`server/pluggy.ts`, rotas `/api/pluggy/*`); o navegador recebe apenas o connect token e os dados. Essas rotas existem no `npm run dev` e no `npm run preview` — em produção será preciso um backend próprio.
+As credenciais ficam só na API Python (`numerus-api/app/pluggy.py`, rotas `/api/pluggy/*`); o navegador recebe apenas o connect token e os dados. No `npm run dev` o Vite repassa `/py/*` e `/api/pluggy/*` para `localhost:8000`.
+
+### Deploy na Vercel (services)
+
+O `vercel.json` publica dois serviços num só projeto: `app` (Vite, rota `/`) e `numerus-api` (FastAPI, rotas `/py/*` e `/api/pluggy/*`). Cadastre no projeto da Vercel as variáveis `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `OPENAI_API_KEY` e as da Twilio. Para testar tudo junto localmente: `vercel dev`.
 
 <img src="assets/brand/section-06.svg" alt="[06] DESIGN" width="100%">
 

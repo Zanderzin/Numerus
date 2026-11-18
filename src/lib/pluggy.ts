@@ -1,5 +1,5 @@
 // browser side of the pluggy integration: talks to the /api/pluggy routes
-// served by vite (server/pluggy.ts) and maps pluggy data into `Dados`.
+// served by the python api (numerus-api/app/pluggy.py) and maps pluggy data into `Dados`.
 import { CATEGORIAS, OUTROS, type Conexao, type Conta, type Dados, type Transacao } from "./data";
 
 export const PERIODOS = [30, 90, 180, 365] as const;

@@ -24,6 +24,9 @@ Documentação interativa: http://localhost:8000/docs · Testes: `pytest -q` (ro
 | `POST /assistente/chat` | chat financeiro (`mensagem`, `historico`, `contexto`, `usuario_id`) |
 | `POST /notificacoes/whatsapp` | envia mensagem livre ou pronta (`tipo`: `progresso_meta`, `conta_vencendo`) |
 | `POST /webhooks/twilio` | quem manda mensagem para o sandbox recebe resposta do assistente |
+| `GET /api/pluggy/status` · `POST /api/pluggy/connect-token` · `GET /api/pluggy/dados` · `GET /api/pluggy/investimentos` | integração Pluggy (credenciais só no servidor) |
+
+Todas as rotas acima (exceto as da Pluggy) também respondem com o prefixo `/py` — é o caminho que o front usa, e na Vercel o serviço recebe o caminho original. Na Vercel o webhook da Twilio fica em `https://<dominio>/py/webhooks/twilio`.
 
 ## Decisões de método
 

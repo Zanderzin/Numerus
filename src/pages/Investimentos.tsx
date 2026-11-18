@@ -65,7 +65,7 @@ export default function Investimentos() {
         setErroMl(SEM_HISTORICO);
         setErro("Sem histórico de meses fechados para o ML. Use o aporte manual.");
       } else {
-        setErro("Não consegui falar com a API de investimentos. Ela está rodando na porta 8000?");
+        setErro("Não consegui falar com a API de investimentos (numerus-api). No dev, ela está rodando na porta 8000?");
       }
     } finally {
       setCarregando(false);

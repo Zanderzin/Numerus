@@ -45,7 +45,7 @@ export default function ConexaoPluggy() {
 
         {!configurado && (
           <p style={{ margin: 0 }}>
-            Para conectar, crie o arquivo <code>.env</code> com <code>PLUGGY_CLIENT_ID</code> e <code>PLUGGY_CLIENT_SECRET</code> (veja <code>.env.example</code>) e reinicie o <code>npm run dev</code>.
+            A API não respondeu ou está sem as chaves da Pluggy. Local: preencha <code>PLUGGY_CLIENT_ID</code> e <code>PLUGGY_CLIENT_SECRET</code> no <code>.env</code> e suba a API Python. Na Vercel: cadastre essas variáveis em Settings → Environment Variables e faça um novo deploy. Diagnóstico: abra <code>/py/saude</code>.
           </p>
         )}
 

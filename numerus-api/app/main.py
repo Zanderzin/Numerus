@@ -84,7 +84,13 @@ class EntradaWhatsApp(BaseModel):
 # ---------- rotas ----------
 @router.get("/saude")
 def saude():
-    return {"ok": True, "openai": bool(config.OPENAI_API_KEY), "twilio": bool(config.TWILIO_ACCOUNT_SID)}
+    # quick deploy check: says which keys the server can see (never the values)
+    return {
+        "ok": True,
+        "openai": bool(config.OPENAI_API_KEY),
+        "pluggy": bool(config.PLUGGY_CLIENT_ID and config.PLUGGY_CLIENT_SECRET),
+        "twilio": bool(config.TWILIO_ACCOUNT_SID),
+    }
 
 
 def _meses_de(meses, transacoes):
